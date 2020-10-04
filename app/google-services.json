@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "908614562422",
+    "firebase_url": "https://liquorexpress-f59ab.firebaseio.com",
+    "project_id": "liquorexpress-f59ab",
+    "storage_bucket": "liquorexpress-f59ab.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:908614562422:android:88d5adaf73f908b136e557",
+        "android_client_info": {
+          "package_name": "com.example.liquorexpress"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "908614562422-7fufdoiqouqrjf7c8dkiiupb3farvkb7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvvi9LSeViKyce-fUPojTU3Diw4VIdszk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "908614562422-7fufdoiqouqrjf7c8dkiiupb3farvkb7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
