@@ -1,150 +1,142 @@
-package com.example.liquorexpress;
+package com.example.feedback;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
-import androidx.core.view.GravityCompat;
-import androidx.drawerlayout.widget.DrawerLayout;
-import androidx.viewpager2.widget.ViewPager2;
+import androidx.recyclerview.widget.DefaultItemAnimator;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.util.Log;
 import android.view.View;
-import android.widget.TextView;
-import com.example.liquorexpress.adapters.PagerAdapter;
-import com.google.android.material.navigation.NavigationView;
-import com.google.android.material.tabs.TabItem;
-import com.google.android.material.tabs.TabLayout;
-import com.google.android.material.tabs.TabLayoutMediator;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 
-public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
-    private DrawerLayout drawerLayout;
-    private Toolbar toolbar;
-    private NavigationView navigationView;
-    private ViewPager2 viewPager2;
-    private TabLayout tabLayout;
-    private TabItem tabHome, tabCategories;
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
-    private TextView drawerName;
-    private TextView drawerEmail;
+import java.util.ArrayList;
+import java.util.Map;
 
-    private ActionBarDrawerToggle actionBarDrawerToggle;
-    private PagerAdapter pagerAdapter;
-    private FirebaseAuth firebaseAuth;
-    private SharedPreferences sharedPreferences;
-    private SharedPreferences.Editor editor;
 
-    private String[] titles = new String[]{"Home", "Categories", "Orders"};
+public class MainActivity extends AppCompatActivity {
+
+    private static RecyclerView.Adapter adapter;
+    private RecyclerView.LayoutManager layoutManager;
+    private static RecyclerView recyclerView;
+    //    private static ArrayList<Comment> data;
+    static View.OnClickListener myOnClickListener;
+    private static ExtendedFloatingActionButton fab;
+
+    FirebaseDatabase database;
+    DatabaseReference myRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+
         setContentView(R.layout.activity_main);
+//        myOnClickListener = new MyOnClickListener(this);
+        recyclerView = (RecyclerView) findViewById(R.id.viewcomments);
+        recyclerView.setHasFixedSize(true);
+        layoutManager = new LinearLayoutManager(this);
+        recyclerView.setLayoutManager(layoutManager);
+        recyclerView.setItemAnimator(new DefaultItemAnimator());
+        fab = (ExtendedFloatingActionButton) findViewById(R.id.newcomment);
+        fab.setOnClickListener(myOnClickListener);
 
-        toolbar = findViewById(R.id.mainToolbar);
-        drawerLayout = findViewById(R.id.mainDrawer);
-        navigationView = findViewById(R.id.mainNavigationView);
-        viewPager2 = findViewById(R.id.mainViewPager);
-        tabLayout = findViewById(R.id.mainTabLayout);
-        tabHome = findViewById(R.id.tabHome);
-        tabCategories = findViewById(R.id.tabCategories);
+        database = FirebaseDatabase.getInstance();
+        myRef = database.getReference("comments");
 
-        setSupportActionBar(toolbar);
-
-        firebaseAuth = FirebaseAuth.getInstance();
-        sharedPreferences = getApplicationContext().getSharedPreferences("liquorExpress", MODE_PRIVATE);
-        editor = sharedPreferences.edit();
-
-        FirebaseUser currentUser = firebaseAuth.getCurrentUser();
-        String currentUserName = sharedPreferences.getString("loggedUserName", "");
-        boolean isAdmin = sharedPreferences.getBoolean("isAdmin", false);
-
-        navigationView.setNavigationItemSelectedListener(this);
-        View navigationHeader = navigationView.getHeaderView(0);
-
-        drawerName = navigationHeader.findViewById(R.id.drawerHeaderName);
-        drawerEmail = navigationHeader.findViewById(R.id.drawerHeaderEmail);
-
-        drawerName.setText(currentUserName);
-        drawerEmail.setText(currentUser != null && currentUser.getEmail() != null ? currentUser.getEmail() : "-");
-
-        actionBarDrawerToggle = new ActionBarDrawerToggle(this, drawerLayout, toolbar, R.string.open, R.string.close);
-        drawerLayout.addDrawerListener(actionBarDrawerToggle);
-        actionBarDrawerToggle.setDrawerIndicatorEnabled(true);
-        actionBarDrawerToggle.syncState();
-
-        pagerAdapter = new PagerAdapter(this, tabLayout.getTabCount(), isAdmin);
-        viewPager2.setAdapter(pagerAdapter);
-
-        new TabLayoutMediator(tabLayout, viewPager2, new TabLayoutMediator.TabConfigurationStrategy() {
+        // Read from the database
+        // Attach a listener to read the data at our posts reference
+        myRef.addValueEventListener(new ValueEventListener() {
             @Override
-            public void onConfigureTab(@NonNull TabLayout.Tab tab, int position) {
-                tab.setText(titles[position]);
-            }
-        }).attach();
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                collectData((Map<String, Object>) dataSnapshot.getValue());
 
-        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override
-            public void onTabSelected(TabLayout.Tab tab) {
-                viewPager2.setCurrentItem(tab.getPosition());
             }
 
             @Override
-            public void onTabUnselected(TabLayout.Tab tab) { }
+            public void onCancelled(DatabaseError databaseError) {
+                System.out.println("The read failed: " + databaseError.getCode());
+            }
+        });
 
+
+        fab.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onTabReselected(TabLayout.Tab tab) { }
+            public void onClick(View view) {
+                Intent myIntent = new Intent(getApplicationContext(), WriteComment.class);
+//            myIntent.putExtra("key", value); //Optional parameters
+                MainActivity.this.startActivity(myIntent);
+            }
         });
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.action_menu, menu);
-        return super.onCreateOptionsMenu(menu);
+    private ArrayList<Comment> collectData(Map<String, Object> users) {
+
+        ArrayList<Comment> comments = new ArrayList<>();
+
+        //iterate through each user, ignoring their UID
+        for (Map.Entry<String, Object> entry : users.entrySet()) {
+            Map item = (Map) entry.getValue();
+            System.out.println(item);
+            Comment comment = new Comment(item.get("username").toString(),
+                    Double.valueOf(item.get("rating").toString()),
+                    null,
+                    item.get("commentTitle").toString(),
+                    item.get("commentDescription").toString());
+            //Get user map
+//
+            //Get phone field and append to list
+            comments.add(comment);
+        }
+        adapter = new CustomAdapter(comments);
+        recyclerView.setAdapter(adapter);
+        return comments;
+//        System.out.println(comments.size());
     }
+//
+//    private class MyOnClickListener implements View.OnClickListener {
+//        private final Context context;
+//
+//        private MyOnClickListener(Context context) {
+//            this.context = context;
+//        }
+//
+//        @Override
+//        public void onClick(View v) {
+//            Intent myIntent = new Intent(context, WriteComment.class);
+////            myIntent.putExtra("key", value); //Optional parameters
+//            MainActivity.this.startActivity(myIntent);
+//        }
+//
+//        private void showDialog(View v) {
+//
+//
+//        }
+////        private void removeItem(View v) {
+////            int selectedItemPosition = recyclerView.getChildPosition(v);
+////            RecyclerView.ViewHolder viewHolder
+////                    = recyclerView.findViewHolderForPosition(selectedItemPosition);
+////            TextView textViewName
+////                    = (TextView) viewHolder.itemView.findViewById(R.id.textViewName);
+////            String selectedName = (String) textViewName.getText();
+////            int selectedItemId = -1;
+////            for (int i = 0; i < MyData.nameArray.length; i++) {
+////                if (selectedName.equals(MyData.nameArray[i])) {
+////                    selectedItemId = MyData.id_[i];
+////                }
+////            }
+////            removedItems.add(selectedItemId);
+////            data.remove(selectedItemPosition);
+////            adapter.notifyItemRemoved(selectedItemPosition);
+////        }
+//    }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.actionCart) {
-            Intent intent = new Intent(MainActivity.this, CartActivity.class);
-            startActivity(intent);
-        }
-        return super.onOptionsItemSelected(item);
-    }
 
-    @Override
-    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-        drawerLayout.closeDrawer(GravityCompat.START);
-
-        if (item.getItemId() == R.id.itemCat) {
-            TabLayout.Tab tab = tabLayout.getTabAt(1);
-            tab.select();
-        }
-        if (item.getItemId() == R.id.itemHome) {
-            TabLayout.Tab tab = tabLayout.getTabAt(0);
-            tab.select();
-        }
-        if (item.getItemId() == R.id.itemOrders) {
-            TabLayout.Tab tab = tabLayout.getTabAt(2);
-            tab.select();
-        }
-        if (item.getItemId() == R.id.itemSignOut) {
-            firebaseAuth.signOut();
-            editor.putString("loggedUserName", "");
-            editor.putBoolean("isLoggedIn", false);
-            editor.putBoolean("isAdmin", false);
-            editor.apply();
-
-            Intent intent = new Intent(MainActivity.this, WelcomeActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-            finish();
-        }
-        return false;
-    }
 }
